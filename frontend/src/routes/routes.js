@@ -6,8 +6,6 @@ import Layout from '../App/Layout/Layout';
 import Home from '../App/Home/Home';
 import JobDescriptionPage from '../App/JobDescription/JobDescription';
 import ProtectedRoute from './protectedRoute';
-import Contact from '../App/Contact/contact';
-import Company from '../App/Company/Company';
 import JobView from '../App/ViewJobDescription/ViewJobDescription';
 import CandidateDetails from '../App/CandidateDetails/CandidateDetails';
 import Profile from '../App/Profile/Profile';
@@ -70,8 +68,6 @@ const AppRouter = () => {
         <Route path="profile" element={<Profile />} />
 
         {/* Contact & Company Info */}
-        <Route path="contact" element={<Contact />} />
-        <Route path="company" element={<Company />} />
       </Route>
 
       {/* Catch-all route to redirect unauthorized users */}
