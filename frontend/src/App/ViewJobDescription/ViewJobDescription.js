@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Container, Row, Col, Button, Tabs, Tab, Table, Modal, Form } from 'react-bootstrap';
+import { Container, Row, Col, Button, Tabs, Tab, Table, Modal, Form, Spinner } from 'react-bootstrap';
 import { FaArrowLeft } from 'react-icons/fa';
 import api from '../../api/api';
 import './ViewJobDescription.css';
@@ -11,6 +11,8 @@ const JobView = () => {
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [candidates, setCandidates] = useState([]);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [updatingCandidate, setUpdatingCandidate] = useState(false);
   const [activeTab, setActiveTab] = useState('inProcess');
   const [showModal, setShowModal] = useState(false);
   const [confirmationModal, setConfirmationModal] = useState(false);
@@ -20,9 +22,9 @@ const JobView = () => {
   const [interviewLocation, setInterviewLocation] = useState('');
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
-  // Fetch job details
   const fetchJobDetails = useCallback(async () => {
     try {
+      setLoading(true);
       const response = await api.get(`/jobs/${jobId}`);
       setJob(response.data);
     } catch (error) {
@@ -32,9 +34,9 @@ const JobView = () => {
     }
   }, [jobId]);
 
-  // Fetch candidates associated with the job
   const fetchCandidates = useCallback(async () => {
     try {
+      setCandidatesLoading(true);
       const response = await api.get('/candidates');
       const filteredCandidates = response.data.filter(
         (candidate) => candidate.jobId === jobId
@@ -42,6 +44,8 @@ const JobView = () => {
       setCandidates(filteredCandidates);
     } catch (error) {
       console.error('Error fetching candidates:', error);
+    } finally {
+      setCandidatesLoading(false);
     }
   }, [jobId]);
 
@@ -50,21 +54,24 @@ const JobView = () => {
     fetchCandidates();
   }, [fetchJobDetails, fetchCandidates]);
 
-  // Update candidate stage
   const updateCandidateStage = async (candidateId, newStage) => {
     try {
+      setUpdatingCandidate(true);
       await api.put(`/candidates/${candidateId}`, { stage: newStage });
       fetchCandidates();
       setConfirmationModal(false);
+      setShowModal(false);
     } catch (error) {
       console.error('Error updating candidate stage:', error);
+    } finally {
+      setUpdatingCandidate(false);
     }
   };
 
-  // Handle scheduling interviews
   const handleModalSubmit = async () => {
     if (modalType === 'schedule') {
       try {
+        setUpdatingCandidate(true);
         await api.put(`/candidates/${selectedCandidate.candidateId}`, {
           stage: 'Scheduled',
           interviewDate,
@@ -74,11 +81,12 @@ const JobView = () => {
         setShowModal(false);
       } catch (error) {
         console.error('Error scheduling interview:', error);
+      } finally {
+        setUpdatingCandidate(false);
       }
     }
   };
 
-  // Handle actions for candidates
   const handleAction = (candidate, action) => {
     setSelectedCandidate(candidate);
     if (action === 'schedule') {
@@ -86,30 +94,28 @@ const JobView = () => {
       setInterviewDate('');
       setInterviewLocation('');
       setShowModal(true);
-    } else if (action === 'shortlist' || action === 'reject') {
-      setModalType(action);
-      setConfirmationModal(true);
-    } else if (action === 'select' || action === 'rejectScheduled') {
+    } else if (action === 'shortlist' || action === 'reject' || action === 'select' || action === 'rejectScheduled') {
       setModalType(action);
       setConfirmationModal(true);
     }
   };
 
-  // Filter candidates by stage
   const getCandidatesByStage = (stage) =>
     candidates.filter((candidate) => candidate.stage === stage);
 
-  // Truncate long text
   const truncateText = (text, length) => {
     if (text.length <= length) return text;
     return `${text.substring(0, length)}...`;
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (!job) return <div>Job not found!</div>;
-
   return (
     <Container className="job-view pt-4">
+      {(loading || updatingCandidate) && (
+        <div className="overlay-loader">
+          <Spinner animation="border" variant="primary" />
+        </div>
+      )}
+
       <div className="d-flex align-items-center mb-3">
         <Button
           variant="link"
@@ -125,22 +131,22 @@ const JobView = () => {
         <Row>
           <Col md={6}>
             <p>
-              <strong>Job Posting:</strong> {job.jobPostingName}
+              <strong>Job Posting:</strong> {job?.jobPostingName}
             </p>
             <p>
-              <strong>Experience Required:</strong> {job.experienceRequired}
+              <strong>Experience Required:</strong> {job?.experienceRequired}
             </p>
           </Col>
           <Col md={6}>
             <p>
-              <strong>Salary Range:</strong> {job.salaryRange}
+              <strong>Salary Range:</strong> {job?.salaryRange}
             </p>
             <p>
               <strong>Description:</strong>{' '}
               {isDescriptionExpanded
-                ? job.description
-                : truncateText(job.description, 100)}{' '}
-              {job.description.length > 100 && (
+                ? job?.description
+                : truncateText(job?.description || '', 100)}{' '}
+              {job?.description?.length > 100 && (
                 <Button
                   variant="link"
                   size="sm"
@@ -161,6 +167,7 @@ const JobView = () => {
             candidates={getCandidatesByStage('In Process')}
             onAction={handleAction}
             actions={['shortlist', 'reject']}
+            loading={candidatesLoading}
           />
         </Tab>
         <Tab eventKey="shortlisted" title="Shortlisted">
@@ -168,6 +175,7 @@ const JobView = () => {
             candidates={getCandidatesByStage('Shortlisted')}
             onAction={handleAction}
             actions={['schedule']}
+            loading={candidatesLoading}
           />
         </Tab>
         <Tab eventKey="scheduled" title="Scheduled Interviews">
@@ -176,6 +184,7 @@ const JobView = () => {
             onAction={handleAction}
             actions={['select', 'rejectScheduled']}
             showInterviewDetails
+            loading={candidatesLoading}
           />
         </Tab>
         <Tab eventKey="selected" title="Selected">
@@ -187,48 +196,56 @@ const JobView = () => {
       </Tabs>
 
       {/* Confirmation Modal */}
-      <Modal show={confirmationModal} onHide={() => setConfirmationModal(false)} centered>
+      <Modal
+        show={confirmationModal}
+        onHide={() => setConfirmationModal(false)}
+        centered
+      >
         <Modal.Header closeButton>
           <Modal.Title>Confirm Action</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Are you sure you want to{' '}
-          {modalType === 'shortlist'
-            ? 'shortlist'
-            : modalType === 'reject'
-            ? 'reject'
-            : modalType === 'select'
-            ? 'select'
-            : 'reject'}{' '}
-          this candidate?
+          {updatingCandidate ? (
+            <div className="text-center">
+              <Spinner animation="border" variant="primary" />
+            </div>
+          ) : (
+            `Are you sure you want to ${
+              modalType === 'shortlist'
+                ? 'shortlist'
+                : modalType === 'select'
+                ? 'select'
+                : 'reject'
+            } this candidate?`
+          )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setConfirmationModal(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant={
-              modalType === 'shortlist'
-                ? 'success'
-                : modalType === 'reject'
-                ? 'danger'
-                : modalType === 'select'
-                ? 'success'
-                : 'danger'
-            }
-            onClick={() =>
-              updateCandidateStage(
-                selectedCandidate.candidateId,
-                modalType === 'shortlist'
-                  ? 'Shortlisted'
-                  : modalType === 'select'
-                  ? 'Selected'
-                  : 'Rejected'
-              )
-            }
-          >
-            Confirm
-          </Button>
+          {!updatingCandidate && (
+            <>
+              <Button variant="secondary" onClick={() => setConfirmationModal(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant={
+                  modalType === 'shortlist' || modalType === 'select'
+                    ? 'success'
+                    : 'danger'
+                }
+                onClick={() =>
+                  updateCandidateStage(
+                    selectedCandidate.candidateId,
+                    modalType === 'shortlist'
+                      ? 'Shortlisted'
+                      : modalType === 'select'
+                      ? 'Selected'
+                      : 'Rejected'
+                  )
+                }
+              >
+                Confirm
+              </Button>
+            </>
+          )}
         </Modal.Footer>
       </Modal>
 
@@ -238,122 +255,144 @@ const JobView = () => {
           <Modal.Title>Schedule Interview</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form>
-            <Form.Group controlId="interviewDate">
-              <Form.Label>Interview Date</Form.Label>
-              <Form.Control
-                type="date"
-                value={interviewDate}
-                onChange={(e) => setInterviewDate(e.target.value)}
-              />
-            </Form.Group>
-            <Form.Group controlId="interviewLocation" className="mt-3">
-              <Form.Label>Interview Location</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="Enter location"
-                value={interviewLocation}
-                onChange={(e) => setInterviewLocation(e.target.value)}
-              />
-            </Form.Group>
-          </Form>
+          {updatingCandidate ? (
+            <div className="text-center">
+              <Spinner animation="border" variant="primary" />
+            </div>
+          ) : (
+            <Form>
+              <Form.Group controlId="interviewDate">
+                <Form.Label>Interview Date</Form.Label>
+                <Form.Control
+                  type="date"
+                  value={interviewDate}
+                  onChange={(e) => setInterviewDate(e.target.value)}
+                />
+              </Form.Group>
+              <Form.Group controlId="interviewLocation" className="mt-3">
+                <Form.Label>Interview Location</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder="Enter location"
+                  value={interviewLocation}
+                  onChange={(e) => setInterviewLocation(e.target.value)}
+                />
+              </Form.Group>
+            </Form>
+          )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowModal(false)}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={handleModalSubmit}>
-            Submit
-          </Button>
+          {!updatingCandidate && (
+            <>
+              <Button variant="secondary" onClick={() => setShowModal(false)}>
+                Cancel
+              </Button>
+              <Button variant="primary" onClick={handleModalSubmit}>
+                Submit
+              </Button>
+            </>
+          )}
         </Modal.Footer>
       </Modal>
     </Container>
   );
 };
 
-const CandidateTable = ({ candidates, onAction, actions, showInterviewDetails = false }) => (
-  <Table responsive striped bordered hover className="custom-table">
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Email</th>
-        <th>Mobile</th>
-        {showInterviewDetails && (
-          <>
-            <th>Interview Date</th>
-            <th>Interview Location</th>
-          </>
-        )}
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {candidates.map((candidate, index) => (
-        <tr key={candidate.candidateId || index}>
-          <td>
-            {candidate.firstName} {candidate.lastName}
-          </td>
-          <td>{candidate.email}</td>
-          <td>{candidate.mobileNo}</td>
+const CandidateTable = ({ candidates, onAction, actions, showInterviewDetails = false, loading }) => {
+  if (loading) {
+    return (
+      <div className="text-center my-5">
+        <Spinner animation="border" variant="primary" />
+      </div>
+    );
+  }
+
+  return (
+    <Table responsive striped bordered hover className="custom-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Mobile</th>
           {showInterviewDetails && (
             <>
-              <td>{candidate.interviewDate || 'N/A'}</td>
-              <td>{candidate.interviewLocation || 'N/A'}</td>
+              <th>Interview Date</th>
+              <th>Interview Location</th>
             </>
           )}
-          <td>
-            {actions.includes('shortlist') && (
-              <Button
-                variant="success"
-                size="sm"
-                className="me-2"
-                onClick={() => onAction(candidate, 'shortlist')}
-              >
-                Shortlist
-              </Button>
-            )}
-            {actions.includes('reject') && (
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={() => onAction(candidate, 'reject')}
-              >
-                Reject
-              </Button>
-            )}
-            {actions.includes('schedule') && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => onAction(candidate, 'schedule')}
-              >
-                Schedule Interview
-              </Button>
-            )}
-            {actions.includes('select') && (
-              <Button
-                variant="success"
-                size="sm"
-                className="me-2"
-                onClick={() => onAction(candidate, 'select')}
-              >
-                Select
-              </Button>
-            )}
-            {actions.includes('rejectScheduled') && (
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={() => onAction(candidate, 'rejectScheduled')}
-              >
-                Reject
-              </Button>
-            )}
-          </td>
+          {actions.length > 0 && <th>Actions</th>}
         </tr>
-      ))}
-    </tbody>
-  </Table>
-);
+      </thead>
+      <tbody>
+        {candidates.map((candidate, index) => (
+          <tr key={candidate.candidateId || index}>
+            <td>
+              {candidate.firstName} {candidate.lastName}
+            </td>
+            <td>{candidate.email}</td>
+            <td>{candidate.mobileNo}</td>
+            {showInterviewDetails && (
+              <>
+                <td>{candidate.interviewDate || 'N/A'}</td>
+                <td>{candidate.interviewLocation || 'N/A'}</td>
+              </>
+            )}
+            {actions.length > 0 && (
+              <td>
+                {actions.includes('shortlist') && (
+                  <Button
+                    variant="success"
+                    size="sm"
+                    className="me-2"
+                    onClick={() => onAction(candidate, 'shortlist')}
+                  >
+                    Shortlist
+                  </Button>
+                )}
+                {actions.includes('reject') && (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => onAction(candidate, 'reject')}
+                  >
+                    Reject
+                  </Button>
+                )}
+                {actions.includes('schedule') && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => onAction(candidate, 'schedule')}
+                  >
+                    Schedule Interview
+                  </Button>
+                )}
+                {actions.includes('select') && (
+                  <Button
+                    variant="success"
+                    size="sm"
+                    className="me-2"
+                    onClick={() => onAction(candidate, 'select')}
+                  >
+                    Select
+                  </Button>
+                )}
+                {actions.includes('rejectScheduled') && (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => onAction(candidate, 'rejectScheduled')}
+                  >
+                    Reject
+                  </Button>
+                )}
+              </td>
+            )}
+          </tr>
+        ))}
+      </tbody>
+    </Table>
+  );
+};
 
 export default JobView;
