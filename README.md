@@ -1,5 +1,5 @@
 
-# Finalerecuiter
+# e-recruiter
 
 ## Overview
 This project is a modern frontend application built using React and Material-UI, aimed at delivering a dynamic user interface.
