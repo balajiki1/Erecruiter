@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Form, Button, Alert, Container, Row, Col, Card } from 'react-bootstrap';
+import { Form, Button, Alert, Container, Row, Col, Card, InputGroup } from 'react-bootstrap';
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import api, { setAuthToken } from '../../api/api';
 import logo from '../../assets/e - Recruiter new.svg'; // Replace with your actual logo path
 import './login.css';
@@ -8,6 +9,7 @@ import './login.css';
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // Toggle for password visibility
   const [errors, setErrors] = useState({});
   const [showAlert, setShowAlert] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
@@ -75,7 +77,12 @@ function Login() {
 
         setTimeout(() => {
           setShowAlert(false);
-          navigate('/layout'); // Redirect to dashboard or layout
+          // Redirect based on userDetails.role
+          if (userDetails.role === 'candidate') {
+            navigate('/layout/jobdescriptioncandidate');
+          } else {
+            navigate('/layout'); // Default route for non-candidates
+          }
         }, 2000);
       } catch (error) {
         setShowAlert(true);
@@ -83,6 +90,10 @@ function Login() {
         setAlertVariant('danger');
       }
     }
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword((prevState) => !prevState);
   };
 
   return (
@@ -107,6 +118,7 @@ function Login() {
                   <Form.Label>Email address</Form.Label>
                   <Form.Control
                     type="email"
+                    placeholder="Enter your email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     isInvalid={!!errors.email}
@@ -118,15 +130,25 @@ function Login() {
 
                 <Form.Group controlId="password" className="mb-3">
                   <Form.Label>Password</Form.Label>
-                  <Form.Control
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    isInvalid={!!errors.password}
-                  />
-                  <Form.Control.Feedback type="invalid">
-                    {errors.password}
-                  </Form.Control.Feedback>
+                  <InputGroup>
+                    <Form.Control
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      isInvalid={!!errors.password}
+                    />
+                    <Button
+                      variant="outline-secondary"
+                      onClick={togglePasswordVisibility}
+                      style={{ borderTopRightRadius: '.25rem', borderBottomRightRadius: '.25rem' }}
+                    >
+                      {showPassword ? <FaEyeSlash /> : <FaEye />}
+                    </Button>
+                    <Form.Control.Feedback type="invalid">
+                      {errors.password}
+                    </Form.Control.Feedback>
+                  </InputGroup>
                 </Form.Group>
 
                 <Button type="submit" variant="primary" className="w-100">
