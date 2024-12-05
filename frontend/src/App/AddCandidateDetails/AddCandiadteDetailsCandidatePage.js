@@ -1,82 +1,86 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Form, Spinner } from 'react-bootstrap';
+import { Modal, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import api from '../../api/api';
 
-const AddCandidateModal = ({
+const AddCandidateModalforCandidate = ({
   show,
   onHide,
   onAddCandidate,
-  onEditCandidate,
-  editMode,
-  candidateToEdit,
-  jobs,
+  selectedJob,
 }) => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [mobileNo, setMobileNo] = useState('');
   const [email, setEmail] = useState('');
-  const [jobId, setJobId] = useState('');
   const [resume, setResume] = useState(null);
-  const [stage, setStage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertVariant, setAlertVariant] = useState(''); // 'success' or 'danger'
 
+  // Reset fields when modal opens
   useEffect(() => {
-    if (editMode && candidateToEdit) {
-      setFirstName(candidateToEdit.firstName);
-      setLastName(candidateToEdit.lastName);
-      setMobileNo(candidateToEdit.mobileNo);
-      setEmail(candidateToEdit.email);
-      setJobId(candidateToEdit.jobId || '');
-      setStage(candidateToEdit.stage || 'In Process'); // Keep stage as it is during edit
-    } else {
-      setFirstName('');
-      setLastName('');
-      setMobileNo('');
-      setEmail('');
-      setJobId('');
-      setResume(null);
-      setStage('In Process'); // Default stage for new candidates
+    if (show) {
+      resetForm();
     }
-  }, [editMode, candidateToEdit]);
+  }, [show]);
 
+  // Reset form fields
+  const resetForm = () => {
+    setFirstName('');
+    setLastName('');
+    setMobileNo('');
+    setEmail('');
+    setResume(null);
+    setAlertMessage('');
+    setAlertVariant('');
+  };
+
+  // Form submission handler
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!firstName || !lastName || !mobileNo || !email || !jobId || (!resume && !editMode)) {
-      alert('All fields are required, including the resume for new candidates.');
+    // Validate that all fields are filled
+    if (!firstName || !lastName || !mobileNo || !email || !resume) {
+      setAlertMessage('All fields are required, including the resume.');
+      setAlertVariant('danger');
       return;
     }
 
     setLoading(true);
 
+    // Create FormData for file upload
     const formData = new FormData();
     formData.append('firstName', firstName);
     formData.append('lastName', lastName);
     formData.append('mobileNo', mobileNo);
     formData.append('email', email);
-    formData.append('jobId', jobId);
-    formData.append('stage', stage);
-    if (resume) formData.append('resume', resume);
+    formData.append('jobId', selectedJob?.jobId); // Ensure jobId exists
+    formData.append('stage', 'In Process'); // Set stage to "In Process"
+    formData.append('resume', resume);
 
     try {
-      let response;
-      if (editMode) {
-        response = await api.put(`/candidates/${candidateToEdit.candidateId}`, formData);
-        if (response.status === 200) {
-          onEditCandidate(response.data.updatedCandidate);
-        }
+      const response = await api.post('/candidates', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.status === 201) {
+        setAlertMessage('Application submitted successfully!');
+        setAlertVariant('success');
+        onAddCandidate(response.data.candidate);
+        resetForm();
+        setTimeout(() => onHide(), 2000); // Close modal after success
       } else {
-        response = await api.post('/candidates', formData);
-        if (response.status === 201) {
-          onAddCandidate(response.data.candidate);
-        }
+        setAlertMessage('Failed to submit the application. Please try again.');
+        setAlertVariant('danger');
       }
-      onHide();
     } catch (error) {
       console.error('Error submitting candidate:', error);
-      const errorMessage =
-        error.response?.data?.message || 'An error occurred while submitting the candidate.';
-      alert(errorMessage);
+      setAlertMessage(
+        error.response?.data?.message || 'An error occurred while submitting the application.'
+      );
+      setAlertVariant('danger');
     } finally {
       setLoading(false);
     }
@@ -85,9 +89,14 @@ const AddCandidateModal = ({
   return (
     <Modal show={show} onHide={onHide} centered>
       <Modal.Header closeButton>
-        <Modal.Title>{editMode ? 'Edit Candidate' : 'Add New Candidate'}</Modal.Title>
+        <Modal.Title>Apply for {selectedJob?.jobPostingName || 'this job'}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
+        {alertMessage && (
+          <Alert variant={alertVariant} onClose={() => setAlertMessage('')} dismissible>
+            {alertMessage}
+          </Alert>
+        )}
         {loading ? (
           <div className="text-center my-3">
             <Spinner animation="border" variant="primary" />
@@ -101,6 +110,7 @@ const AddCandidateModal = ({
                 placeholder="Enter first name"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
+                required
               />
             </Form.Group>
             <Form.Group className="mb-3" controlId="lastName">
@@ -110,6 +120,7 @@ const AddCandidateModal = ({
                 placeholder="Enter last name"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
+                required
               />
             </Form.Group>
             <Form.Group className="mb-3" controlId="mobileNo">
@@ -119,6 +130,7 @@ const AddCandidateModal = ({
                 placeholder="Enter mobile number"
                 value={mobileNo}
                 onChange={(e) => setMobileNo(e.target.value)}
+                required
               />
             </Form.Group>
             <Form.Group className="mb-3" controlId="email">
@@ -128,35 +140,20 @@ const AddCandidateModal = ({
                 placeholder="Enter email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                required
               />
             </Form.Group>
-            <Form.Group className="mb-3" controlId="jobId">
-              <Form.Label>Job Position</Form.Label>
+            <Form.Group className="mb-3" controlId="resume">
+              <Form.Label>Resume</Form.Label>
               <Form.Control
-                as="select"
-                value={jobId}
-                onChange={(e) => setJobId(e.target.value)}
-              >
-                <option value="">Select a Job</option>
-                {jobs.map((job) => (
-                  <option key={job.jobId} value={job.jobId}>
-                    {job.jobPostingName}
-                  </option>
-                ))}
-              </Form.Control>
+                type="file"
+                onChange={(e) => setResume(e.target.files[0])}
+                required
+              />
             </Form.Group>
-            {!editMode && (
-              <Form.Group className="mb-3" controlId="resume">
-                <Form.Label>Resume</Form.Label>
-                <Form.Control
-                  type="file"
-                  onChange={(e) => setResume(e.target.files[0])}
-                />
-              </Form.Group>
-            )}
             <div className="text-end">
               <Button variant="primary" type="submit">
-                {editMode ? 'Save Changes' : 'Add Candidate'}
+                Submit Application
               </Button>
             </div>
           </Form>
@@ -166,4 +163,4 @@ const AddCandidateModal = ({
   );
 };
 
-export default AddCandidateModal;
+export default AddCandidateModalforCandidate;
