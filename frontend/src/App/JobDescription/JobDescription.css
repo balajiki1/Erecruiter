@@ -18,6 +18,7 @@
   transition: transform 0.3s;
 }
 
+
 /* Responsive Adjustments */
 @media (max-width: 768px) {
   .content h4 {

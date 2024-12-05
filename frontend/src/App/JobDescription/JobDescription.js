@@ -201,8 +201,8 @@ const JobList = () => {
             ))}
           </Row>
 
-          <nav aria-label="Page navigation example" className="pagination-container text-end pe-3">
-            <ul className="pagination d-inline-flex">
+          <nav aria-label="Page navigation example" className="pagination-container fixed-bottom">
+            <ul className="pagination justify-content-end pe-3">
               <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
                 <Button
                   className="page-link"
