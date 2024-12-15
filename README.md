@@ -2,7 +2,8 @@
 # e-recruiter
 
 ## Overview
-This project is a modern frontend application built using React and Material-UI, aimed at delivering a dynamic user interface.
+This project is a modern frontend application built using React and Material-UI, 
+aimed at delivering a dynamic user interface.
 
 ## Features
 - Modern styling with Emotion CSS-in-JS and Material-UI components.
