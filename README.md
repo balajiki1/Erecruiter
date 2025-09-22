@@ -6,8 +6,8 @@ https://erecruiter.netlify.app
 
 
 ## Overview
-This project is a modern frontend application built using React and Material-UI, 
-aimed at delivering a dynamic user interface.
+A full-stack recruitment web app with React, TypeScript, Redux, SCSS, Node.js, Express, and MongoDB
+to simplify job management, interview scheduling, and candidate tracking, enhancing operational efficiency.
 
 ## Features
 - Modern styling with Emotion CSS-in-JS and Material-UI components.
