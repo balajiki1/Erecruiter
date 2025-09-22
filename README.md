@@ -1,6 +1,10 @@
 
 # e-recruiter
 
+## Website
+https://erecruiter.netlify.app
+
+
 ## Overview
 This project is a modern frontend application built using React and Material-UI, 
 aimed at delivering a dynamic user interface.
@@ -88,13 +92,6 @@ The optimized output will be in the `build` folder.
    npm install
    ```
 
-3. Set up environment variables:
-   Create a `.env` file in the root directory and configure the following variables:
-   ```env
-   PORT=3000
-   DB_URI=<your-database-uri>
-   JWT_SECRET=<your-jwt-secret>
-   ```
 
 ### Running the Application
 
